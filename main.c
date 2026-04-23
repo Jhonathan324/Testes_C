@@ -5,16 +5,17 @@
 #include <conio.h>
 
 #define CHUNK_SIZE 16
+#define CHUNK_RANDER_X 3
+#define CHUNK_RANDER_Y 3
 
-// posição do chunk no mundo
+
 typedef struct {
     int x, y;
     uint8_t tiles[CHUNK_SIZE][CHUNK_SIZE];
 } Chunk;
 
 
-// 🔹 Geração procedural simples (substitui depois por Perlin)
-void gerar_chunk(Chunk *c) {
+void GerarChunk(Chunk *c) {
     for (int i = 0; i < CHUNK_SIZE; i++) {
         for (int j = 0; j < CHUNK_SIZE; j++) {
             c->tiles[i][j] = 0 ;
@@ -22,12 +23,11 @@ void gerar_chunk(Chunk *c) {
     }
 }
 
-// 🔹 Nome do arquivo do chunk
-void nome_arquivo(char *buffer, int x, int y) {
+
+void NomeArquivo(char *buffer, int x, int y) {
     sprintf(buffer, "map/chunk_%d_%d.bin", x, y);
 }
 
-// 🔹 Gerar a chunk e o local na mesma dado uma determina localização
 
 void GerarCordenada(int global,int *local, int *chunk){
     if(global < 0){
@@ -43,9 +43,9 @@ void GerarCordenada(int global,int *local, int *chunk){
 }
 
 // 🔹 Salvar chunk
-void salvar_chunk(Chunk *c) {
+void SalvarChunk(Chunk *c) {
     char nome[64];
-    nome_arquivo(nome, c->x, c->y);
+    NomeArquivo(nome, c->x, c->y);
 
     FILE *f = fopen(nome, "wb");
     if (!f) return;
@@ -54,13 +54,13 @@ void salvar_chunk(Chunk *c) {
     fclose(f);
 }
 
-// 🔹 Carregar chunk (ou gerar se não existir)
-void carregar_chunk(Chunk *c, int x, int y) {
+
+void CarregarChunk(Chunk *c, int x, int y) {
     c->x = x;
     c->y = y;
 
     char nome[64];
-    nome_arquivo(nome, x, y);
+    NomeArquivo(nome, x, y);
 
     FILE *f = fopen(nome, "rb");
 
@@ -70,22 +70,22 @@ void carregar_chunk(Chunk *c, int x, int y) {
         printf("Chunk (%d,%d) carregado do disco\n", x, y);
     } else {
         printf("Chunk (%d,%d) gerado\n", x, y);
-        gerar_chunk(c);
-        salvar_chunk(c);
+        GerarChunk(c);
+        SalvarChunk(c);
     }
 }
 
 
 int main() {
     uint8_t valor = 0;
-    Chunk matriz_chunk[3][3];
+    Chunk matriz_chunk[CHUNK_RANDER_Y][CHUNK_RANDER_X];
     int subx, suby,x=0, y=0, chunk_x = 0, chunk_y = 0, chunk_x_temp=0, chunk_y_temp=0, lixo;
 
-    for(int i = 0; i < 3; i ++) for (int j = 0; j < 3; j++){
+    for(int i = 0; i < CHUNK_RANDER_Y; i ++) for (int j = 0; j < CHUNK_RANDER_X; j++){
         int Chunk_x,Chunk_y;
-        GerarCordenada((x + (CHUNK_SIZE*(j-1))), &lixo, &Chunk_x);
-        GerarCordenada((y + (CHUNK_SIZE*(i-1))), &lixo, &Chunk_y);
-        carregar_chunk(&matriz_chunk[i][j],Chunk_x,Chunk_y);
+        GerarCordenada((x + (CHUNK_SIZE*(j-(CHUNK_RANDER_X/2)))), &lixo, &Chunk_x);
+        GerarCordenada((y + (CHUNK_SIZE*(i-(CHUNK_RANDER_Y/2)))), &lixo, &Chunk_y);
+        CarregarChunk(&matriz_chunk[i][j],Chunk_x,Chunk_y);
     }
 
     while(valor < 255){
@@ -117,25 +117,26 @@ int main() {
         GerarCordenada(x, &subx, &chunk_x_temp);
         GerarCordenada(y, &suby, &chunk_y_temp);
 
-        for(int i = 0; i < 3 * CHUNK_SIZE; i ++) {
-            for (int j = 0; j < 3*CHUNK_SIZE; j++){
+
+        if(chunk_x_temp != chunk_x || chunk_y_temp != chunk_y){
+            chunk_x = chunk_x_temp;
+            chunk_y = chunk_y_temp;
+            for(int i = 0; i < CHUNK_RANDER_Y; i ++) for (int j = 0; j < CHUNK_RANDER_X; j++){
+                int Chunk_x,Chunk_y,lixo;
+                GerarCordenada((x + (CHUNK_SIZE*(j-CHUNK_RANDER_X/2))), &lixo, &Chunk_x);
+                GerarCordenada((y + (CHUNK_SIZE*(i-CHUNK_RANDER_X/2))), &lixo, &Chunk_y);
+                CarregarChunk(&matriz_chunk[i][j],Chunk_x,Chunk_y);
+            }
+        }
+        matriz_chunk[CHUNK_RANDER_Y/2][CHUNK_RANDER_X/2].tiles[suby][subx] = valor;
+        for(int i = 0; i < CHUNK_RANDER_Y; i ++) for (int j = 0; j < CHUNK_RANDER_X; j++) SalvarChunk(&matriz_chunk[i][j]);
+        for(int i = 0; i < CHUNK_RANDER_Y * CHUNK_SIZE; i ++) {
+            for (int j = 0; j < CHUNK_RANDER_X*CHUNK_SIZE; j++){
                 printf("%3d ", matriz_chunk[i/CHUNK_SIZE][j/CHUNK_SIZE].
                                tiles[i%CHUNK_SIZE][j%CHUNK_SIZE]);
             }
             printf("\n");
         }
-        if(chunk_x_temp != chunk_x || chunk_y_temp != chunk_y){
-            chunk_x = chunk_x_temp;
-            chunk_y = chunk_y_temp;
-            for(int i = 0; i < 3; i ++) for (int j = 0; j < 3; j++){
-                int Chunk_x,Chunk_y,lixo;
-                GerarCordenada((x + (CHUNK_SIZE*(j-1))), &lixo, &Chunk_x);
-                GerarCordenada((y + (CHUNK_SIZE*(i-1))), &lixo, &Chunk_y);
-                carregar_chunk(&matriz_chunk[i][j],Chunk_x,Chunk_y);
-            }
-        }
-        matriz_chunk[1][1].tiles[suby][subx] = valor;
-        for(int i = 0; i < 3; i ++) for (int j = 0; j < 3; j++) salvar_chunk(&matriz_chunk[i][j]);
 
     }
 
